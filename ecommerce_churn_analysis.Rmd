@@ -1,0 +1,1003 @@
+---
+title: "Predicting Customer Churn in E-Commerce: Leveraging Statistical Models and Hypothesis Testing for Strategic Customer Segmentation and Marketing Optimization"
+author: "Nikkat Afrin"
+date: " "
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    theme: cerulean
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# Abstract
+
+This project investigates the key factors influencing customer churn in an e-commerce environment and explores how statistical models can be used to predict churn and optimize marketing strategies. The dataset, generated using the Faker Python library, simulates customer transactions, demographics, and churn behavior. Exploratory Data Analysis (EDA) revealed uniform distributions across most numerical variables, with a class imbalance in the churn variable, where 80% of customers were non-churned. Chi-Squared tests identified a significant relationship between Payment. Method and churn, while other categorical variables showed no strong associations. T-tests for numerical variables like Product.Price and Customer. Age indicated minimal differences between churned and non-churned customers.
+
+
+A logistic regression model was employed to predict churn, using features such as Product. Price, Quantity, Total.Purchase.Amount, Customer.Age, and Returns. Oversampling was applied to address the class imbalance, ensuring equal representation of churned and non-churned customers in the training data. Despite these efforts, the model achieved an accuracy of ~50% and an ROC AUC of ~0.5, suggesting poor predictive performance. The results highlight weak relationships between the features and churn, limiting the model's generalization ability.
+
+
+The analysis underscores the limitations of synthetic data, which lacks the complexity and patterns of real-world e-commerce data. While the applied methods—including EDA, hypothesis testing, and logistic regression—were appropriate, the lack of meaningful feature relationships and the artificial nature of the data hindered the model’s effectiveness. Future work should focus on real-world datasets with richer features, such as customer engagement metrics and satisfaction scores, and explore advanced models like Random Forests or Gradient Boosting. Despite its limitations, this study provides a framework for analyzing churn and demonstrates the challenges of modeling using synthetic data.
+
+---
+
+# Dataset Overview
+
+## Data Collection:
+
+The data for this project, called the "E-commerce Customer Behavior and Purchase Dataset," was taken from Kaggle. It is a synthetic dataset, which means it was created artificially using a tool called the Faker Python library. The dataset is designed to look like real e-commerce data and includes details about customer behavior and purchase history in an online marketplace. This data is useful for tasks such as predicting customer churn, analyzing product purchases, creating recommendation systems, and studying trends in customer activity.
+
+The dataset can be accessed at: \textcolor{blue}{\underline{\href{https://www.kaggle.com/datasets/shriyashjagtap/e-commerce-customer-for-behavior-analysis/data?select=ecommerce_customer_data_large.csv}{Kaggle Dataset Link}}}.
+
+
+## Variables:
+
+###1. Response Variable
+
+The response variable in this dataset is **Churn**. It is a **categorical** variable indicating whether a customer has churned (1) or is retained (0). This variable is important because it helps us understand customer retention, and we can use it in predictive models to analyze factors influencing churn.
+
+###2. Explanatory Variables
+
+The explanatory variables are all other columns that provide information about the customer’s demographics, purchasing behavior, and engagement with the platform. These include:
+
+- **Customer Age**: Numerical
+- **Gender**: Categorical
+- **Product Category**: Categorical
+- **Product Price**: Numerical
+- **Quantity**: Numerical
+- **Total Purchase Amount**: Numerical
+- **Payment Method**: Categorical
+- **Returns**: Categorical (binary)
+
+
+---
+
+# Research Question
+
+**What are the key factors that predict customer churn in an e-commerce environment, and how can statistical models, including hypothesis testing and regression analysis, be used to identify these factors and optimize marketing strategies?**
+
+---
+
+# Data Preprocessing
+
+```{r tidy verse package}
+library(tidyverse)
+```
+## Data Loading:
+
+```{r loading data from github}
+# Load data from GitHub
+github_url <- "https://raw.githubusercontent.com/Nikkat-Afrin/Customer-Segmentation-and-Marketing-Optimization-in-E-Commerce/refs/heads/main/ecommerce_customer_data_large.csv"
+ecommerce_data <- read.csv(github_url)
+head(ecommerce_data)  # Check the first few rows
+```
+
+##Data Structure of the Variables in the data set:
+
+```{r checking data structure}
+# Checking data structure 
+str(ecommerce_data)
+
+# response variable
+table(ecommerce_data$Churn)  
+
+```
+## Checking for the Missing Values:
+
+```{r Checking_missing_values}
+# Percentage of missing values by column
+missing_summary <- data.frame(
+  Column = colnames(ecommerce_data),
+  Missing_Values = colSums(is.na(ecommerce_data)),
+  Percentage = colSums(is.na(ecommerce_data)) / nrow(ecommerce_data) * 100
+)
+
+print(missing_summary)
+
+```
+As we can see in the Returs column we have total of 47382 missing value which corresponds to 18.9% of the data values in that column.
+
+## Handling Missing Values: Removing the rows with missing values in the dataset
+
+```{r}
+ecommerce_data <- ecommerce_data[complete.cases(ecommerce_data$Returns), ]
+```
+
+## Check for missing values:
+
+```{r Veirfy_no_missing}
+# Check if there are any missing values in the Returns column
+sum(is.na(ecommerce_data$Returns))
+
+```
+```{r}
+# Check the number of rows and columns
+dim(ecommerce_data)
+```
+## Data Cleaning
+
+### Updating Total Purchase Amount Column
+
+The `Total Purchase Amount` column in the dataset was found to have incorrect values. This issue was resolved by recalculating the column as the product of `Product Price` and `Quantity`. The updated column was generated within the R environment without modifying the original dataset on GitHub.
+
+```{r Total Purchase Amount}
+# Update the 'Total Purchase Amount' column
+ecommerce_data$Total.Purchase.Amount <- ecommerce_data$Product.Price * ecommerce_data$Quantity
+
+# Display the updated dataset
+head(ecommerce_data)  # Display the first few rows
+
+# Optional: Summary of the updated column
+summary(ecommerce_data$Total.Purchase.Amount)
+```
+
+
+---
+
+# Exploratory Data Analysis
+
+
+### Explanatory Variables
+
+To understand the explanatory variables better, we generated the summary
+statistics and organized them in a table for easier readability.
+
+```{r summary stats}
+# explanatory variables
+summary(ecommerce_data[c("Customer.Age", "Gender", "Product.Category", "Product.Price", "Quantity", "Total.Purchase.Amount", "Payment.Method", "Returns")])
+
+```
+## Univariate Analysis:
+
+### Numerical Variables
+
+1. **Customer Age**:  
+   Ages range from 18 to 70, with an average age of about 43.8. The median and mean are close.
+   
+   
+```{r age plot}
+
+library(ggplot2)
+
+# Plotting Customer Age Distribution
+ggplot(ecommerce_data, aes(x = Customer.Age)) +
+  geom_histogram(binwidth = 5, fill = "skyblue", color = "black") +
+  labs(title = "Distribution of Customer Age", x = "Age", y = "Frequency") +
+  theme_minimal()
+```
+The distribution of customer ages is uniform, ranging from 18 to 70, with each age group having a similar frequency of around 4,500 to 5,000 customers. This balanced spread suggests an evenly represented age range, ideal for age-based analysis without bias toward any particular group.
+
+2. **Product Price**:  
+   The prices of products range from $10 to $500, with an average of $254.7. The mean and median are close, suggesting a balanced distribution of prices.
+   
+```{r product price}
+# Plotting Product Price Distribution
+ggplot(ecommerce_data, aes(x = Product.Price)) +
+  geom_histogram(binwidth = 20, fill = "lightgreen", color = "black") +
+  labs(title = "Distribution of Product Price", x = "Price ($)", y = "Frequency") +
+  theme_minimal()
+```
+
+The distribution of product prices is mostly uniform from $10 to $500, with each price range having a similar frequency around 9,000, except for a slight drop in frequency at the highest price point near $500. This suggests a balanced spread of product prices across the dataset.
+
+3. **Quantity**:  
+   Quantities per transaction range from 1 to 5, with an average close to 3, showing that customers typically purchase around 2-4 items per transaction.
+   
+```{r quantity distribution}
+# Plotting Quantity Distribution
+ggplot(ecommerce_data, aes(x = Quantity)) +
+  geom_histogram(binwidth = 1, fill = "lightcoral", color = "black") +
+  labs(title = "Distribution of Quantity", x = "Quantity", y = "Frequency") +
+  theme_minimal()
+
+```
+   The quantity per transaction is evenly spread across all levels from 1 to 5, with about 50,000 transactions for each quantity. This doesn't match the expected average close to 3, which would usually mean more transactions with quantities around 2-4. 
+
+4. **Total Purchase Amount**:  
+   
+```{r purchase amount}
+# Plotting Total Purchase Amount Distribution
+ggplot(ecommerce_data, aes(x = Total.Purchase.Amount)) +
+  geom_histogram(binwidth = 250, fill = "lightblue", color = "black") +
+  labs(title = "Distribution of Total Purchase Amount", x = "Total Purchase Amount ($)", y = "Frequency") +
+  theme_minimal()
+```
+
+   
+The histogram shows a right-skewed distribution of total purchase amounts, with most transactions concentrated in the $0–$500 range and fewer high-value purchases. This indicates that smaller purchases dominate the dataset, while large transactions are relatively rare.
+
+5. **Returns**:  
+   The `Returns` column is binary (0 or 1), with approximately equal returns and non-returns. we already Handled the missing values during data preprocessing.
+   
+```{r returns plot}
+# Plotting Returns Distribution (Binary)
+ggplot(ecommerce_data, aes(x = factor(Returns))) +
+  geom_bar(fill = "pink", color = "black") +
+  labs(title = "Distribution of Returns", x = "Returns (0 = No, 1 = Yes)", y = "Frequency") +
+  theme_minimal()
+```
+   This bar chart shows the distribution of returns. Approximately 100,000 transactions each are labeled as “0” (no return) and “1” (return), indicating an equal balance of returns and non-returns.
+   
+   
+6. **Churn**
+
+```{r Churn Plot}
+ggplot(ecommerce_data, aes(x = factor(Churn))) +
+  geom_bar(fill = "skyblue", color = "black") +
+  labs(
+    title = "Churn Distribution",
+    x = "Churn (0 = Retained, 1 = Churned)",
+    y = "Count"
+  ) +
+  theme_minimal()
+
+```
+- A significant majority of the customers are retained, as indicated by the taller bar for 0 (Retained).
+- A relatively smaller proportion of customers have churned, as shown by the shorter bar for 1 (Churned).
+- The disparity in the two bars highlights class imbalance in the dataset, with more retained customers compared to churned ones.
+   
+   
+```{r}
+library(dplyr)
+
+# Count the occurrences of each value in the Churn column
+ecommerce_data %>%
+  count(Churn)
+```
+   
+### Categorical Variables:
+
+```{r, frequency tables for categorical variables}
+
+library(dplyr)
+
+# Frequency table for Gender
+gender_freq <- ecommerce_data %>%
+  group_by(Gender) %>%
+  summarise(Frequency = n())
+
+print("Frequency Table for Gender")
+gender_freq
+
+# Frequency table for Product Category
+product_category_freq <- ecommerce_data %>%
+  group_by(Product.Category) %>%
+  summarise(Frequency = n())
+
+print("Frequency Table for Product Category")
+product_category_freq
+
+# Frequency table for Payment Method
+payment_method_freq <- ecommerce_data %>%
+  group_by(Payment.Method) %>%
+  summarise(Frequency = n())
+
+print("Frequency Table for Payment Method")
+payment_method_freq
+```
+
+## Summary statistics: categorical variables
+
+1. **Gender**: The dataset includes 100699 female customers and 101919 male customers, showing a nearly balanced gender distribution.
+
+2. **Product Category**: The product categories are evenly distributed, with each category (Books, Clothing, Electronics, Home) having around 50,000 purchases.
+
+3. **Payment Method**: Payment methods are also evenly distributed, with Cash, Credit Card, and PayPal each used in roughly 67,000 transactions.
+
+
+### Product Category Breakdown
+
+
+```{r}
+ecommerce_data %>%
+  group_by(Product.Category) %>%
+  summarise(Count = n()) %>%
+  ggplot(aes(x = reorder(Product.Category, Count), y = Count, fill = Product.Category)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  scale_fill_manual(values = c("#FFB6C1", "#ADD8E6", "#FFE4B5", "#98FB98", "#FFD700")) +
+  labs(
+    title = "Product Category Distribution",
+    x = "Category",
+    y = "Count"
+  ) +
+  theme_minimal()
+
+```
+## Bivariate ANalysis:
+
+#### **1. Bar Plot: Product Category and Churn:**
+
+```{r Product Category and Churn}
+ggplot(ecommerce_data, aes(x = Product.Category, fill = factor(Churn))) +
+  geom_bar(position = "fill") +
+  labs(
+    title = "Churn Rate by Product Category",
+    x = "Product Category",
+    y = "Proportion",
+    fill = "Churn"
+  ) +
+  theme_minimal()
+
+```
+
+The graph shows that churn rates (proportion of customers who left, labeled as 1) are consistent across all product categories, with churned customers comprising a smaller proportion compared to retained customers. This indicates that product category does not significantly influence churn behavior.
+
+#### **1.2 Bar Plot: Payment.Method vs. Churn:**
+
+```{r Payment.Method vs. Churn}
+ggplot(ecommerce_data, aes(x = Payment.Method, fill = factor(Churn))) +
+  geom_bar(position = "fill") +
+  labs(
+    title = "Payment Method vs. Churn",
+    x = "Payment Method",
+    y = "Proportion",
+    fill = "Churn Status"
+  ) +
+  scale_fill_manual(values = c("#ADD8E6", "#FFA07A")) +
+  theme_minimal()
+
+```
+
+The graph indicates that churn rates (proportion of customers labeled as 1) are similar across all payment methods, with churned customers forming a smaller portion compared to retained customers. This suggests that payment method does not significantly influence churn behavior.
+
+#### **1.3 Bar Plot: Returns vs. Churn:**
+
+
+```{r Returns vs. Churn}
+ggplot(ecommerce_data, aes(x = factor(Returns), fill = factor(Churn))) +
+  geom_bar(position = "fill") +
+  labs(
+    title = "Returns vs. Churn",
+    x = "Returns (0 = No, 1 = Yes)",
+    y = "Proportion",
+    fill = "Churn Status"
+  ) +
+  scale_fill_manual(values = c("#ADD8E6", "#FFA07A")) +
+  theme_minimal()
+
+```
+The graph shows that churn rates (proportion of customers labeled as 1) are nearly identical between customers who return products (1) and those who do not (0). This suggests that product returns have minimal impact on customer churn behavior.
+
+#### **2. Box Plots**
+
+##### **2.1 Price Variability by Product Category**
+
+```{r boxplot-price-category}
+ggplot(ecommerce_data, aes(x = Product.Category, y = Product.Price, fill = Product.Category)) +
+  geom_boxplot() +
+  labs(
+    title = "Price Variability by Product Category",
+    x = "Product Category",
+    y = "Product Price"
+  ) +
+  theme_minimal()
+```
+The boxplot shows the variability in product prices across different product categories. The median prices are fairly similar across categories, with slightly higher variability in categories like "Home" and "Books." This indicates that price ranges are consistent, but certain categories may include products at both high and low price points.
+
+
+##### **2.2 Quantity by Product Category**
+
+```{r boxplot-quantity-category}
+ggplot(ecommerce_data, aes(x = Product.Category, y = Quantity, fill = Product.Category)) +
+  geom_boxplot() +
+  labs(
+    title = "Quantity Distribution by Product Category",
+    x = "Product Category",
+    y = "Quantity"
+  ) +
+  theme_minimal()
+```
+
+This boxplot illustrates the quantity distribution for different product categories. The median quantity purchased is consistent across all categories, with slight variability in the range. Categories like "Home" show a slightly broader range of quantities, indicating variability in purchasing behavior within this category.
+
+
+##### **2.3 Total.Purchase.Amount by churn status**
+
+```{r Total.Purchase.Amount by churn status.}
+ggplot(ecommerce_data, aes(x = factor(Churn), y = Total.Purchase.Amount, fill = factor(Churn))) +
+  geom_boxplot() +
+  labs(
+    title = "Purchase Amount Distribution by Churn Status",
+    x = "Churn (0 = Retained, 1 = Churned)",
+    y = "Total Purchase Amount"
+  ) +
+  theme_minimal()
+
+```
+This boxplot shows the distribution of total purchase amounts for churned (1) and retained (0) customers. Both groups have a similar median purchase amount, but the churned customers display slightly higher variability in their purchase amounts, as indicated by the greater spread of the box and whiskers. This suggests that customers who churn may make both very high and very low-value purchases.
+
+
+##### **2.4 Customer.Age vs. Churn**
+
+```{r Customer.Age vs. Churn}
+ggplot(ecommerce_data, aes(x = factor(Churn), y = Customer.Age, fill = factor(Churn))) +
+  geom_boxplot() +
+  labs(
+    title = "Customer Age by Churn Status",
+    x = "Churn Status (0 = Retained, 1 = Churned)",
+    y = "Customer Age"
+  ) +
+  scale_fill_manual(values = c("#ADD8E6", "#FFA07A"), name = "Churn Status") +
+  theme_minimal()
+
+```
+This boxplot illustrates the distribution of customer age by churn status. Both retained (0) and churned (1) customers have similar median ages, but churned customers show slightly greater variability in age. This indicates that churn occurs across a broader age range compared to retention.
+
+
+##### **2.5 Product.Price vs. Churn**
+
+```{r Product.Price vs. Churn}
+ggplot(ecommerce_data, aes(x = factor(Churn), y = Product.Price, fill = factor(Churn))) +
+  geom_boxplot() +
+  labs(
+    title = "Product Price by Churn Status",
+    x = "Churn Status (0 = Retained, 1 = Churned)",
+    y = "Product Price"
+  ) +
+  scale_fill_manual(values = c("#ADD8E6", "#FFA07A"), name = "Churn Status") +
+  theme_minimal()
+
+```
+This boxplot compares the distribution of product prices for retained (0) and churned (1) customers. The median product price is similar for both groups, but churned customers exhibit slightly higher variability in product prices. This indicates that customers who churn may purchase products across a broader price range.
+
+---
+
+#### **3. Density Plots**
+
+##### **3.1 Customer Age and Churn (Density Plot):
+
+```{r Customer Age and Churn (Density Plot)}
+ggplot(ecommerce_data, aes(x = Customer.Age, fill = factor(Churn))) +
+  geom_density(alpha = 0.6) +
+  labs(
+    title = "Customer Age Distribution by Churn Status",
+    x = "Age",
+    y = "Density",
+    fill = "Churn"
+  ) +
+  theme_minimal()
+
+```
+ The density plot indicates that customers aged between 20 to 25 and 58 to 65 have higher churn rates compared to other age groups, as the distribution for churned customers (1) is more pronounced in these age ranges. This suggests that age might influence churn behavior in these specific groups.
+
+##### **3.2 Product Price by Product Category**
+```{r density-price-category}
+ggplot(ecommerce_data, aes(x = Product.Price, fill = Product.Category)) +
+  geom_density(alpha = 0.6) +
+  labs(
+    title = "Density Plot of Product Price by Product Category",
+    x = "Product Price",
+    y = "Density"
+  ) +
+  theme_minimal()
+
+```
+
+##### **3.2 Product.Price by Churn**
+
+```{r Product.Price by Churn}
+ggplot(ecommerce_data, aes(x = Product.Price, fill = factor(Churn))) +
+  geom_density(alpha = 0.5) +
+  labs(
+    title = "Density Plot of Product Price by Churn Status",
+    x = "Product Price",
+    y = "Density",
+    fill = "Churn Status"
+  ) +
+  scale_fill_manual(values = c("#ADD8E6", "#FFA07A")) +
+  theme_minimal()
+
+```
+This density plot for product price segmented by churn status shows nearly identical distributions for churned (1) and retained (0) customers. This suggests that product price has little to no influence on churn, as customers in both groups exhibit similar preferences across the price range.
+
+
+---
+
+#### **4.Correlation Heatmap**
+```{r correlation-heatmap}
+# Compute Correlation Matrix
+numeric_data <- ecommerce_data %>%
+  select_if(is.numeric)
+correlation_matrix <- cor(numeric_data, use = "complete.obs")
+
+# Convert the matrix into a format suitable for ggplot2
+correlation_data <- as.data.frame(as.table(correlation_matrix))
+colnames(correlation_data) <- c("Variable1", "Variable2", "Correlation")
+
+ggplot(correlation_data, aes(x = Variable1, y = Variable2, fill = Correlation)) +
+  geom_tile(color = "white") +  # Add white borders for better visibility
+  scale_fill_gradient2(low = "blue", high = "red", mid = "white", midpoint = 0.2, 
+                       limits = c(-1, 1), space = "Lab", name = "Correlation") +
+  geom_text(aes(label = round(Correlation, 2)), color = "black", size = 3) +  # Add numeric values
+  labs(
+    title = " Correlation Heatmap",
+    x = "Variables",
+    y = "Variables"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),  # Rotate x-axis labels
+    panel.grid = element_blank()  # Remove gridlines for a cleaner look
+  )
+
+
+```
+This heatmap visualizes the correlations among the numerical variables in your dataset. 
+
+1. **Strong Positive Correlation:**
+   - `Product.Price` and `Total.Purchase.Amount` have a correlation of **0.72**, indicating that as product price increases, the total purchase amount also tends to increase.
+   - `Quantity` and `Total.Purchase.Amount` have a correlation of **0.61**, suggesting that higher quantities purchased are associated with larger total purchase amounts.
+
+2. **No Correlation or Insignificant Relationships:**
+   - Most other variables, including `Churn`, `Returns`, `Customer.Age`, and `Age`, show negligible or no correlation with each other or with `Total.Purchase.Amount` or `Product.Price`.
+
+## MultiVariate Analysis:
+
+```{r pair_plot}
+# Subset the relevant numerical columns from your dataset
+numerical_data <- ecommerce_data[, c("Product.Price", "Quantity", "Total.Purchase.Amount", "Customer.Age")]
+
+# Custom function to display correlation in the upper panel
+panel.cor <- function(x, y, digits = 2, prefix = "", cex.cor = 1.5, ...) {
+  usr <- par("usr"); on.exit(par(usr))  # Save and reset user coordinates
+  par(usr = c(0, 1, 0, 1))  # Set user coordinates for the panel
+  r <- cor(x, y, use = "complete.obs")
+  txt <- format(c(r, 0.123456789), digits = digits)[1]
+  txt <- paste0(prefix, txt)
+  text(0.5, 0.5, txt, cex = cex.cor * abs(r))  # Add the correlation value
+}
+
+# Custom function to display histograms on the diagonal
+panel.hist <- function(x, ...) {
+  usr <- par("usr"); on.exit(par(usr))  # Save and reset user coordinates
+  par(usr = c(usr[1:2], 0, 1))  # Set y-axis to 0-1 for histogram
+  h <- hist(x, plot = FALSE)  # Get histogram data
+  breaks <- h$breaks; nB <- length(breaks)
+  y <- h$counts; y <- y / max(y)  # Normalize counts
+  rect(breaks[-nB], 0, breaks[-1], y, col = "lightblue", ...)  # Draw bars
+}
+
+# Custom function to display scatterplot in the lower panel
+panel.smooth <- function(x, y, ...) {
+  points(x, y, pch = 20, col = "blue", ...)  # Plot points
+  lines(lowess(x, y), col = "red", ...)  # Add a smoothing line
+}
+
+# Create the pair plot
+pairs(
+  numerical_data,
+  upper.panel = panel.cor,  # Correlations in the upper panel
+  diag.panel = panel.hist,  # Histograms on the diagonal
+  lower.panel = panel.smooth,  # Scatterplot with lowess line in lower panel
+  main = "Pair Plot with Correlations and Histograms"
+)
+
+
+```
+This pair plot provides insights into the relationships between numerical variables in our dataset. 
+
+1. **Diagonal Panels (Histograms)**:
+   - Each diagonal panel shows the distribution of individual variables.
+   - For example:
+     - `Product.Price` and `Customer.Age` are relatively evenly distributed.
+     - `Total.Purchase.Amount` is right-skewed, with a higher density of lower amounts.
+
+2. **Upper Panels (Correlations)**:
+   - The upper panels display the correlation coefficients between variables.
+   - Example correlations:
+     - `Product.Price` and `Total.Purchase.Amount`: 0.72 (strong positive correlation).
+     - `Quantity` and `Total.Purchase.Amount`: 0.61 (moderate positive correlation).
+   - Other variables, like `Quantity` and `Customer.Age`, appear to have weak or no correlation.
+
+3. **Lower Panels (Scatterplots)**:
+   - The scatterplots depict relationships between pairs of variables.
+   - Patterns:
+     - `Product.Price` vs. `Total.Purchase.Amount`: A clear linear trend suggests that as `Product.Price` increases, the `Total.Purchase.Amount` also increases.
+     - `Quantity` vs. `Total.Purchase.Amount`: Shows a positive relationship, with higher quantities associated with higher purchase amounts.
+     - `Customer.Age` vs. other variables: No obvious trends or relationships.
+
+
+- **Key Correlations**:
+  - `Product.Price` and `Total.Purchase.Amount` have the strongest positive correlation, indicating that higher product prices drive higher total purchases.
+  - `Quantity` and `Total.Purchase.Amount` also have a meaningful relationship.
+- **Insights**:
+  - The scatterplots confirm the relationships observed in the correlation coefficients.
+  - `Customer.Age` does not show a significant relationship with other variables, suggesting it might not be a strong predictor of churn or purchase behaviors.
+
+
+---
+
+# Statistical Analysis
+
+## 1. Hypothesis Testing:
+
+### **1.1 Chi-Squared Test: Categorical Variables and Churn**
+```{r chi-squared}
+# Chi-squared test for Product.Category and Churn
+category_churn_table <- table(ecommerce_data$Product.Category, ecommerce_data$Churn)
+chisq_result <- chisq.test(category_churn_table)
+
+# Results
+chisq_result
+```
+- **Null Hypothesis (H0):** Product category does not influence churn.
+- **Alternative Hypothesis (H1):** Product category influences churn.
+
+**Interpretation:** Since the p-value (0.8463) is much greater than the commonly used significance level of 0.05:
+
+Fail to reject H0. There is insufficient evidence to conclude that product category influences churn.
+This suggests that churn is independent of the product category in your dataset, and this variable may not be a significant predictor of churn. Consider focusing on other variables that might have a stronger relationship with churn, such as numerical features or other categorical variables like payment methods.
+
+```{r ChiSquared test_all categorical variables}
+# List of categorical variables
+categorical_variables <- c("Product.Category", "Payment.Method", "Returns", "Gender")
+
+# Loop through each categorical variable and perform Chi-squared test
+for (variable in categorical_variables) {
+  # Create contingency table
+  contingency_table <- table(ecommerce_data[[variable]], ecommerce_data$Churn)
+  
+  # Perform Chi-squared test
+  chi_test <- chisq.test(contingency_table)
+  
+  # Print results
+  cat("\nChi-squared Test for", variable, "vs Churn\n")
+  print(chi_test)
+}
+
+```
+### **Interpretation of Chi-squared Test Results**
+
+#### **1. Product Category vs Churn**
+- **X-squared = 0.81317**, **p-value = 0.8463**
+- The p-value is greater than 0.05, indicating that there is no statistically significant relationship between `Product.Category` and `Churn`. This means that churn rates are similar across different product categories.
+
+#### **2. Payment Method vs Churn**
+- **X-squared = 8.8412**, **p-value = 0.01203**
+- The p-value is less than 0.05, suggesting a statistically significant relationship between `Payment.Method` and `Churn`. This implies that churn rates may vary based on the payment method used by customers.
+
+#### **3. Returns vs Churn**
+- **X-squared = 3.3489**, **p-value = 0.06725**
+- The p-value is slightly greater than 0.05, indicating that there is no strong evidence of a relationship between `Returns` and `Churn`. However, it is close to significance, so further investigation could be warranted.
+
+#### **4. Gender vs Churn**
+- **X-squared = 1.4914**, **p-value = 0.222**
+- The p-value is greater than 0.05, meaning there is no statistically significant relationship between `Gender` and `Churn`. This suggests that churn rates are similar for different genders.
+
+
+### **Key Insights**
+- **Payment Method** is the only categorical variable showing a significant relationship with churn. This indicates it could be an important factor to consider.
+- `Product.Category`, `Returns`, and `Gender` do not show strong relationships with churn based on this analysis.
+
+### **t Test: Numerical Variables and Churn**
+
+### Hypothesis:
+- **Null Hypothesis (H₀)**: The means of the numerical variable are the same across the two `Churn` groups.
+- **Alternative Hypothesis (H₁)**: The means of the numerical variable are significantly different across the two `Churn` groups.
+
+```{r T Test}
+# Loop through numerical variables
+numerical_vars <- c("Product.Price", "Quantity", "Total.Purchase.Amount", "Customer.Age", "Returns")
+
+# Perform T-Test for each variable
+for (var in numerical_vars) {
+  cat("\nT-Test for", var, "by Churn:\n")
+  t_test_result <- t.test(ecommerce_data[[var]] ~ ecommerce_data$Churn)
+  print(t_test_result)
+}
+```
+Based on the results of your T-Tests, here's the interpretation for each numerical variable:
+
+### 1. **Product.Price by Churn**
+- **p-value**: 0.2334 (> 0.05)
+- **Interpretation**: The difference in mean `Product.Price` between churned (group 1) and retained (group 0) customers is **not statistically significant**. The null hypothesis cannot be rejected.
+
+
+### 2. **Quantity by Churn**
+- **p-value**: 0.3073 (> 0.05)
+- **Interpretation**: The difference in mean `Quantity` between churned and retained customers is **not statistically significant**. The null hypothesis cannot be rejected.
+
+
+### 3. **Total.Purchase.Amount by Churn**
+- **p-value**: 0.3646 (> 0.05)
+- **Interpretation**: The difference in mean `Total.Purchase.Amount` between churned and retained customers is **not statistically significant**. The null hypothesis cannot be rejected.
+
+
+### 4. **Customer.Age by Churn**
+- **p-value**: 0.3336 (> 0.05)
+- **Interpretation**: The difference in mean `Customer.Age` between churned and retained customers is **not statistically significant**. The null hypothesis cannot be rejected.
+
+
+### 5. **Age by Churn**
+- **p-value**: 0.3336 (> 0.05)
+- **Interpretation**: The difference in mean `Age` between churned and retained customers is **not statistically significant**. The null hypothesis cannot be rejected.
+
+
+### 6. **Returns by Churn**
+- **p-value**: 0.06643 (> 0.05, but close)
+- **Interpretation**: The difference in mean `Returns` between churned and retained customers is **not statistically significant**, but the p-value is close to the threshold of significance (0.05). This variable may warrant further investigation.
+
+
+### General Observation:
+None of the numerical variables showed a statistically significant difference in means across churned and retained groups. This suggests that these numerical variables might not be strong predictors of churn based on mean comparison alone. 
+
+## Logistic Regression:
+
+```{r Logistic regression1}
+# Set a seed for reproducibility
+set.seed(1)
+
+# Split the dataset: 70% for training and 30% for testing
+sample <- sample(c(TRUE, FALSE), nrow(ecommerce_data), replace = TRUE, prob = c(0.7, 0.3))
+train <- ecommerce_data[sample, ]
+test <- ecommerce_data[!sample, ]
+
+# Convert Returns to a factor (if not already done)
+train$Returns <- as.factor(train$Returns)
+test$Returns <- as.factor(test$Returns)
+
+# Fit the logistic regression model on the training set
+logistic_model <- glm(Churn ~ Product.Price + Quantity + Total.Purchase.Amount + Customer.Age + Returns, 
+                      data = train, 
+                      family = binomial)
+
+# Display the summary of the model
+summary(logistic_model)
+
+# Make predictions on the test set
+test$predicted_probs <- predict(logistic_model, newdata = test, type = "response")
+
+# Threshold at 0.5 to classify predictions as churned (1) or not churned (0)
+test$predicted_class <- ifelse(test$predicted_probs > 0.5, 1, 0)
+
+# Evaluate the model's performance
+confusion_matrix <- table(Predicted = test$predicted_class, Actual = test$Churn)
+confusion_matrix
+
+# Calculate accuracy
+accuracy <- sum(diag(confusion_matrix)) / sum(confusion_matrix)
+cat("Accuracy: ", accuracy, "\n")
+
+```
+### Interpretation of Logistic Regression Output:
+
+1. **Coefficients**:
+   - **Intercept**: The baseline log-odds of churn when all other predictors are zero.
+   - **Product.Price**: Not statistically significant (p-value = 0.2150). Its impact on churn is not strong.
+   - **Quantity**: Statistically significant (p-value = 0.0216). For every unit increase in quantity, the odds of churn decrease slightly.
+   - **Total.Purchase.Amount**: Marginally significant (p-value = 0.0513). For every unit increase in purchase amount, the odds of churn increase slightly.
+   - **Customer.Age**: Not statistically significant (p-value = 0.4103). Age has no significant impact on churn.
+   - **Returns1**: Statistically significant (p-value = 0.0259). Customers who made returns have slightly lower odds of churning.
+
+2. **Significance Codes**:
+   - Variables with p-values < 0.05 are considered statistically significant. In this model, `Quantity` and `Returns` are significant predictors.
+
+3. **Model Fit**:
+   - **Null deviance**: 142465 (measures the model fit without predictors).
+   - **Residual deviance**: 142453 (measures the model fit with predictors). A lower residual deviance indicates a better fit.
+   - **AIC**: 142465. This is a measure of the model’s quality; lower values are better.
+
+4. **Confusion Matrix**:
+   - Correct predictions:
+     - True Negatives (TN): 48,574 (non-churn predicted correctly).
+     - True Positives (TP): 12,193 (churn predicted correctly).
+   - Accuracy: **79.93%**. The model correctly classifies churn about 80% of the time.
+
+
+```{r roc_1}
+# Load necessary library
+library(ggplot2)
+
+# Predict probabilities for the test dataset
+test$predicted_probs <- predict(logistic_model, newdata = test, type = "response")
+
+# Calculate true positive rate (TPR) and false positive rate (FPR)
+roc_data <- data.frame(
+  Threshold = seq(0, 1, by = 0.01)
+) %>%
+  mutate(
+    TPR = sapply(Threshold, function(t) {
+      sum(test$predicted_probs > t & test$Churn == 1) / sum(test$Churn == 1)
+    }),
+    FPR = sapply(Threshold, function(t) {
+      sum(test$predicted_probs > t & test$Churn == 0) / sum(test$Churn == 0)
+    })
+  )
+
+# Plot the ROC curve
+ggplot(roc_data, aes(x = FPR, y = TPR)) +
+  geom_line(color = "blue") +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "red") +
+  labs(
+    title = "ROC Curve for Logistic Regression Model",
+    x = "False Positive Rate (FPR)",
+    y = "True Positive Rate (TPR)"
+  ) +
+  theme_minimal()
+
+# Calculate AUC (Area Under the Curve)
+auc <- sum(diff(roc_data$FPR) * (roc_data$TPR[-1] + roc_data$TPR[-nrow(roc_data)]) / 2)
+cat("AUC: ", auc, "\n")
+
+```
+
+
+##Logistic Regression 2:
+
+To address class imbalance in my logistic regression model, I used **stratified train-test splitting**. This ensures that both the training and testing datasets maintain the same proportion of classes as the original dataset. 
+
+Here is the implementation of stratified splitting in R along with an optional oversampling strategy:
+
+```{r Logistic_Regression_2}
+# Oversample the minority class
+# Separate majority and minority classes
+majority_class <- ecommerce_data[ecommerce_data$Churn == 0, ]
+minority_class <- ecommerce_data[ecommerce_data$Churn == 1, ]
+
+# Oversample the minority class to match the size of the majority class
+set.seed(4)  # For reproducibility
+oversampled_minority <- minority_class[sample(nrow(minority_class), 
+                                              nrow(majority_class), 
+                                              replace = TRUE), ]
+
+# Combine the oversampled minority class with the majority class
+balanced_data <- rbind(majority_class, oversampled_minority)
+
+# Shuffle the balanced dataset
+set.seed(4)
+balanced_data <- balanced_data[sample(nrow(balanced_data)), ]
+
+# Train-test split
+set.seed(4)
+split_index <- floor(0.7 * nrow(balanced_data))  # 70% for training
+train <- balanced_data[1:split_index, ]
+test <- balanced_data[(split_index + 1):nrow(balanced_data), ]
+
+# Train logistic regression on the balanced dataset
+logistic_model <- glm(Churn ~ Product.Price + Quantity + Total.Purchase.Amount + 
+                        Customer.Age + Returns, 
+                      data = train, 
+                      family = binomial)
+
+# Evaluate the model on the test set
+predicted_probs <- predict(logistic_model, test, type = "response")
+predicted_classes <- ifelse(predicted_probs > 0.5, 1, 0)
+
+# Confusion Matrix
+confusion_matrix <- table(Predicted = predicted_classes, Actual = test$Churn)
+print(confusion_matrix)
+
+# Accuracy
+accuracy <- sum(diag(confusion_matrix)) / sum(confusion_matrix)
+print(paste("Accuracy:", accuracy))
+
+
+```
+
+
+```{r roc_2}
+# Calculate TPR and FPR manually using predicted_probs
+thresholds <- seq(0, 1, length.out = 100)
+roc_data <- data.frame(
+  Threshold = thresholds,
+  TPR = sapply(thresholds, function(t) {
+    sum(test$Churn == 1 & predicted_probs > t) / sum(test$Churn == 1)
+  }),
+  FPR = sapply(thresholds, function(t) {
+    sum(test$Churn == 0 & predicted_probs > t) / sum(test$Churn == 0)
+  })
+)
+
+# Plot the ROC Curve
+library(ggplot2)
+ggplot(roc_data, aes(x = FPR, y = TPR)) +
+  geom_line(color = "blue") +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "red") +
+  labs(
+    title = "ROC Curve for Logistic Regression Model",
+    x = "False Positive Rate (FPR)",
+    y = "True Positive Rate (TPR)"
+  ) +
+  theme_minimal()
+
+```
+
+- **Lack of True Signal in the Data:**
+
+Faker generates data based on predefined templates and random distributions rather than actual user behavior or real-world patterns.
+This often results in datasets that lack genuine correlations between features and the target variable (Churn in your case). Without these correlations, a model cannot find meaningful patterns to predict Churn.
+
+---
+
+# **Results**
+
+#### **Exploratory Data Analysis**
+1. **Univariate Analysis**:
+   - The distribution of key variables like `Product.Price`, `Customer.Age`, and `Total.Purchase.Amount` revealed relatively uniform distributions, suggesting that these features may not provide strong signals for predicting churn.
+   - The `Churn` variable exhibited a class imbalance, with approximately 80% of customers being non-churned (`Churn = 0`) and 20% churned (`Churn = 1`).
+
+2. **Bivariate Analysis**:
+   - **Boxplots** comparing numerical features (`Product.Price`, `Total.Purchase.Amount`, and `Quantity`) across churn groups (`Churn = 0` and `Churn = 1`) showed minimal differences between the groups, suggesting weak relationships between these features and churn.
+   - **Correlation Analysis** revealed no strong correlations between numerical variables, with most correlation coefficients being close to zero.
+
+3. **Chi-Squared Tests for Categorical Variables**:
+   - The categorical variables (`Payment.Method`, `Product.Category`, `Returns`, and `Gender`) were tested against `Churn` using Chi-Squared tests.
+   - Only `Payment.Method` showed a statistically significant association with `Churn` (`p-value < 0.05`), indicating a potential relationship.
+
+---
+
+#### **Hypothesis Testing**
+1. **T-Test for Numerical Variables**:
+   - T-tests were conducted to compare means of numerical features (`Product.Price`, `Quantity`, `Total.Purchase.Amount`, and `Customer.Age`) across churn groups.
+   - None of the tests showed statistically significant differences (`p-values > 0.05`), except for `Quantity` and `Total.Purchase.Amount`, which were marginally significant.
+
+---
+
+#### **Logistic Regression**
+1. **Model Summary**:
+   - A logistic regression model was trained using features (`Product.Price`, `Quantity`, `Total.Purchase.Amount`, `Customer.Age`, and `Returns`) to predict churn.
+   - The model achieved an **accuracy of 50%** on the test dataset, indicating poor predictive performance.
+   - Key insights from the logistic regression coefficients:
+     - `Quantity` and `Returns` were statistically significant predictors (`p-value < 0.05`).
+     - Other features, such as `Product.Price` and `Customer.Age`, were not significant predictors.
+
+2. **ROC Curve Analysis**:
+   - The ROC curve for the logistic regression model showed an **AUC of approximately 0.5**, further confirming that the model performs no better than random guessing.
+   - The predicted probabilities clustered within a narrow range, suggesting weak model calibration.
+
+
+
+#### **Key Findings**
+1. The analysis suggests that **none of the numerical variables** (e.g., `Product.Price`, `Customer.Age`, etc.) exhibit strong predictive power for churn.
+2. Among categorical variables, only `Payment.Method` demonstrated a statistically significant relationship with churn.
+3. The logistic regression model struggled to generalize due to:
+   - Lack of meaningful relationships between features and churn.
+   - The synthetic nature of the dataset, which might lack real-world patterns. 
+
+---
+
+### **Conclusion**
+1. **No Strong Predictors of Churn**:  
+   - Features like `Product.Price`, `Customer.Age`, `Product.Category`, and `Gender` showed little to no influence on predicting churn.
+   - Only `Returns` and `Quantity` showed slight significance but were not strong enough to improve predictions.
+
+2. **Model Performance**:  
+   - The logistic regression model achieved an accuracy of ~50%, which is similar to random guessing.
+   - The ROC AUC score of ~0.5 further confirmed the model's inability to differentiate between churned and non-churned customers.
+
+3. **Methodology Provides a Framework**:  
+   - Despite the limitations, the applied methods, such as hypothesis testing, stratified sampling, and logistic regression, provide a foundation for future analysis with better data.
+
+---
+
+### **Limitations**  
+
+1. **Synthetic Data**:  
+   - The data was artificially generated and did not reflect the complexity of real-world e-commerce environments.
+   - Key drivers of churn, such as customer satisfaction and engagement, were not included.
+   - This limitation prevented the model from finding meaningful patterns for churn prediction.
+
+2. **Class Imbalance**:  
+   - Although oversampling and stratified sampling addressed class imbalance, the lack of strong predictors limited the impact on model performance.
+
+3. **Limited Feature Relevance**:  
+   - Many features in the dataset, like `Product.Category` and `Payment.Method`, did not significantly correlate with churn.
+   - Important features, like customer behavior or interaction history, were missing.
+
+4. **Results Not Generalizable**:  
+   - Findings from this study are specific to the synthetic dataset and cannot be applied to real-world e-commerce scenarios without further validation.
+
+
+# References
+1. Kaggle dataset: [E-commerce Customer Behavior](https://www.kaggle.com/datasets/shriyashjagtap/e-commerce-customer-for-behavior-analysis/).
+2. Course Slides on hypothesis testing and regression.
+3. https://www.statology.org/logistic-regression-in-r/
+
+

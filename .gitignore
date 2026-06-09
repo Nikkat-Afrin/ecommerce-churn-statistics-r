@@ -1,0 +1,15 @@
+﻿# R
+.Rhistory
+.Rapp.history
+.RData
+.Ruserdata
+*.Rproj.user/
+.Rproj.user
+# Knitr / rmarkdown caches
+*_cache/
+*_files/
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
