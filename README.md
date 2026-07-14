@@ -2,7 +2,7 @@
 
 **A statistics-first study of customer churn: exploratory analysis, hypothesis testing, and logistic regression in R to identify churn drivers and inform marketing strategy — with an honest assessment of what synthetic data can and cannot reveal.**
 
-![R](https://img.shields.io/badge/R-RMarkdown-276DC3?logo=r&logoColor=white) ![Methods](https://img.shields.io/badge/Methods-Hypothesis%20Testing%20%2B%20Logistic%20Regression-blue)
+![R](https://img.shields.io/badge/R-RMarkdown-276DC3?logo=r&logoColor=white) ![Methods](https://img.shields.io/badge/Methods-Hypothesis%20Testing%20%2B%20Logistic%20Regression-blue) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ---
 
