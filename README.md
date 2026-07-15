@@ -46,3 +46,15 @@ Rendered output: [`ecommerce_churn_analysis.html`](ecommerce_churn_analysis.html
 
 ---
 *Computational Mathematics final project. Related to the `Customer-Segmentation-and-Marketing-Optimization-in-E-Commerce` repo. Demonstrates statistical rigor and honest model evaluation.*
+
+
+## 📁 Repository contents
+
+| File | What it is |
+|---|---|
+| `ecommerce_churn_analysis.Rmd` | Full R Markdown source: EDA, hypothesis tests, logistic regression |
+| `ecommerce_churn_analysis.html` | Rendered report (download to view) |
+| `report.pdf` | Final project report |
+| `data/ecommerce_customer_data_large.csv` | Kaggle synthetic e-commerce dataset (250k rows) used in the analysis |
+
+> Note: this repository absorbed `Customer-Segmentation-and-Marketing-Optimization-in-E-Commerce` (now archived) - the two contained the same analysis.
